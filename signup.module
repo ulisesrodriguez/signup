@@ -1,0 +1,258 @@
+<?php 
+/*
+======================================================================================
+
+  Author		Ulises Rodriguez
+  Site:			http://www.ulisesrodriguez.com	
+  Twitter:		https://twitter.com/#!/isc_ulises
+  Facebook:		http://www.facebook.com/ISC.Ulises
+  Github:		https://github.com/ulisesrodriguez
+  Email:		ing.ulisesrodriguez@gmail.com
+  Skype:		systemonlinesoftware
+  Location:		World
+   
+  System:
+  Drupal
+  
+  Module:
+  Singup
+    
+====================================================================================== */
+
+// Implement hook_process
+
+function signup_process( &$variables, $hook ){
+	
+    drupal_add_library('system', 'drupal.ajax');
+    
+	drupal_add_library('system', 'jquery.form');
+
+
+
+}
+
+// Implements hook_schema()
+
+function signup_schema(){
+    
+	/*
+		CREATE TABLE IF NOT EXISTS signup(
+			
+			sid INT  AUTO_INCREMENT NOT NULL,
+			email VARCHAR(32) NOT NULL,
+			PRIMARY KEY( sid )
+			
+		) ENGINE= INNODB;
+	
+	
+	*/
+	
+	
+	$schema['signup'] = array(
+    
+	'description' => t('Save emails accounts'),
+    'fields' => array(
+     'sid' => array(
+      'description' => t('My unique identifier'),
+      'type' => 'serial',
+      'unsigned' => true,
+      'not null' => true,
+      ), 
+     'email' => array(
+       'description' => t('Email account'),
+       'type' => 'varchar',
+       'length' => 32,
+       'not null' => true,
+      ),
+      
+    ),
+    
+    'primary key' => array('sid'),
+    'unique keys' => array(
+       'sid' => array('sid'),
+    ),
+    );
+
+
+    return $schema;
+
+}
+	
+// Implements hook_install()
+
+function signup_install(){
+
+    drupal_install_schema('signup');
+
+}
+ 
+ 
+// Implements hook_uninstall()
+function signup_uninstall(){
+	
+	
+	drupal_uninstall_schema( 'signup' );
+	
+	
+}
+
+
+
+// Implements hook_menu
+
+function signup_menu(){
+
+	
+	$items = array();
+	
+	$items['signup/save'] = array(
+		
+		'page callback' => 'drupal_get_form',
+		'access callback' => TRUE,
+		'page arguments' => array('signup_form'),
+		'type' => MENU_CALLBACK
+	
+	);
+	
+	return $items;
+
+}
+
+
+// Implement hook_blog_info
+
+function signup_block_info() {
+    
+    $block = array();
+
+    // Sign up block
+    $block['sign_up'] = array(
+                'info' =>   t('Form SignUp'),
+                'weight' => 0
+	);  
+
+    return $block;
+}
+
+
+
+
+
+// Implements hook_block_view
+ 
+function signup_block_view( $delta ) {
+    
+    $block = array();
+	
+	
+	switch( $delta ) {
+  
+  
+        case 'sign_up':
+  
+  			 $form = drupal_get_form('signup_form');
+             $block['content'] = '<p class="signup">SIGN UP FOR RECEIVE EMAILS</p>' . drupal_render( $form ); 
+  
+  
+  
+        break;
+  
+    }
+	
+    return $block;
+}
+
+
+
+// Implements hook_form
+
+
+function signup_form( $form_state ) {
+	 
+	
+	$form['signup'] = array(
+		'#type' => 'markup',
+		'#value' => '<br><div id="call_back" style="clear: both;"></div>',
+	);
+ 
+	// create a form to allow the user to enter the new node's title and body
+	$form['email'] = array(
+		'#type' => 'textfield',
+		'#title' => "",
+		'#attributes' => array( 'placeholder' => 'Enter your email', 'onFocus' => 'javascript: this.placeholder="";', 'onBlur' => 'javascript: if( this.value.lenght = 0 ){ this.placeholder="Enter your email"; }' ),
+		'#required' => FALSE,
+	);
+	
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('Subscribe'),
+		'#ajax' => array(
+			'path' => 'signup/save',
+			'wrapper' => 'call_back',
+			'method' => 'replace',
+			'effect' => 'fade',
+			'progress' => array('type' => 'bar', 'message' => t('Please wait...')),
+		),
+		'#submit' => array('signup_save'), // If no javascript action.
+	);
+	
+	//print_r( $form );
+	
+	return $form;
+}
+
+
+
+function signup_save( $form, $form_state ) {
+	
+	
+	$commands = array();
+	
+	
+	// Validation empty
+	
+	if( empty( $form_state['values']['email'] ) ){
+		
+		$commands[] = ajax_command_replace('#call_back', t( 'Error: This field is empty.!' ) );
+			
+		return array('#type' => 'ajax', '#commands' => $form.'<br>'.$commands);
+			
+	}	
+	
+	
+	// Validation email 
+	if ( !preg_match( "/^([a-zA-Z0-9])+([a-zA-Z0-9\._-])*@([a-zA-Z0-9_-])+([a-zA-Z0-9\._-]+)+$/", $form_state['values']['email'] ) ) {
+		// Email invalid because wrong number of characters 
+		// in one section or wrong number of @ symbols.
+		$commands[] = ajax_command_replace('#call_back', t( 'Error: This email is invalid. Example: mail@mail.com !' ) );
+			
+		return array('#type' => 'ajax', '#commands' => $form.'<br>'.$commands);
+	}
+	
+	
+		
+  
+  // We add here more commands but for the purpose of this example we add only one.
+	
+	$data = array(
+		  'email' => $form_state['values']['email'],
+	);
+		
+	if( drupal_write_record( 'signup', $data ) ){
+			
+		$commands[] = ajax_command_replace('#call_back', t( 'Subscribed !' ) );
+			
+		return array('#type' => 'ajax', '#commands' => $form.'<br>'.$commands);
+						
+	}else{
+			
+		$commands[] = ajax_command_replace('#call_back', t( 'Error !' ) );
+			
+		return array('#type' => 'ajax', '#commands' => $form.'<br>'.$commands);
+			
+	}
+ 
+		
+	
+}
+
